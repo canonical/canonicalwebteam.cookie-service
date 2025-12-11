@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 CACHE_KEY_COOKIE_SERVICE_UP = "cookie-service-up"
-COOKIE_SERVICE_HEALTHCHECK_PATH = "/api/v1/health"
+COOKIE_SERVICE_HEALTHCHECK_PATH = "/_status/check"
 
 
 class CookieServiceClient:
@@ -50,7 +50,7 @@ class CookieServiceClient:
         If response time > 1s, consider it down for better UX.
         """
         try:
-            response = requests.get(self.health_url, timeout=1)
+            response = requests.get(self.health_url, timeout=5)
             is_up = response.status_code == 200
         except Exception:
             is_up = False
