@@ -1,5 +1,6 @@
 # __init__.py
 import os
+import logging
 from flask import request, g
 from .routes import consent_bp
 from .client import CookieServiceClient
@@ -7,11 +8,14 @@ from .helpers import (
     sync_preferences_cookie,
     check_session_and_redirect,
     set_cookie_for_session_life,
+    skip_non_html_requests,
 )
 
 # Export main class for package-level imports
 __all__ = ["CookieConsent"]
 
+
+logger = logging.getLogger(__name__)
 class CookieConsent:
     def init_app(
         self,
@@ -74,12 +78,18 @@ class CookieConsent:
         Before request hook that checks for user session
         and redirects to cookie service if needed.
         """
-        # Check health, set flag, and stop processing if service is down
-        # Uses flask.g so it resets on every request
-        if self.client.is_service_up():
-            g.cookies_service_up = True
+        logger.debug(f"0. --- Request type: {request.mimetype}")
+        logger.debug(f"0. --- Request path: {request.path}")
+        # If service is down, mark flag and skip any redirect/session logic
+        if not self.client.is_service_up():
+            g.cookies_service_up = False
+            return
         else:
-            return None
+            g.cookies_service_up = True
+
+        # Ignore non-HTML/static/API requests entirely
+        if skip_non_html_requests():
+            return
 
         # Check if we have already redirected to create session
         if request.cookies.get("_cookies_redirect_completed") is not None:
@@ -99,6 +109,8 @@ class CookieConsent:
         """
         After request hook that syncs preferences cookie from the service.
         """
+        logger.debug(f"1. --- Response type: {response.mimetype}")
         response = sync_preferences_cookie(response)
         response.headers.add("Vary", "Cookie")
+        logger.debug(f"2. --- Response type: {response.mimetype}")
         return response
