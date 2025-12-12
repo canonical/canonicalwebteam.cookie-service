@@ -1,3 +1,6 @@
+### 1.0.2 [12-12-2025]
+- Add header "vary": "cookie" to after_request hook to ensure fresh response on redirect
+
 ### 1.0.1 [11-12-2025]
 - Extend timeout for healthcheck
 

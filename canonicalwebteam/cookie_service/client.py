@@ -50,7 +50,7 @@ class CookieServiceClient:
         If response time > 1s, consider it down for better UX.
         """
         try:
-            response = requests.get(self.health_url, timeout=5)
+            response = requests.get(self.health_url, timeout=3)
             is_up = response.status_code == 200
         except Exception:
             is_up = False

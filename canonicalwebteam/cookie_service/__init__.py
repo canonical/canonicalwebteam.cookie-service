@@ -100,4 +100,5 @@ class CookieConsent:
         After request hook that syncs preferences cookie from the service.
         """
         response = sync_preferences_cookie(response)
+        response.headers.add("Vary", "Cookie")
         return response
