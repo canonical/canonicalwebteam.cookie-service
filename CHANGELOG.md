@@ -1,3 +1,6 @@
+### 1.0.4 [16-12-2025]
+- Don't raise an error on missing API key
+
 ### 1.0.3 [16-12-2025]
 - Skip `/_status/check` endpoint
 - Only add header `"vary": "cookie"` to html response

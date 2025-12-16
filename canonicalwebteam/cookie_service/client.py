@@ -36,7 +36,7 @@ class CookieServiceClient:
         )
 
         if not self.api_key:
-            raise ValueError("Cookie Service API Key is not configured.")
+            logger.warning("Warning: Cookie Service API Key is not configured.")
 
     def _get_auth_headers(self):
         """Builds auth headers."""
