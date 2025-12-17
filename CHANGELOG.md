@@ -1,3 +1,6 @@
+### 1.0.5 [17-12-2025]
+- Don't cache the redirect responses
+
 ### 1.0.4 [16-12-2025]
 - Don't raise an error on missing API key
 

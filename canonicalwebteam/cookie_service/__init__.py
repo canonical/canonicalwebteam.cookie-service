@@ -91,6 +91,7 @@ class CookieConsent:
 
         # If we got a response (redirect), set flag cookie for this session
         if response:
+            response.headers["Cache-Control"] = "no-store"
             set_cookie_for_session_life(
                 response, "_cookies_redirect_completed", "true"
             )
@@ -101,6 +102,4 @@ class CookieConsent:
         After request hook that syncs preferences cookie from the service.
         """
         response = sync_preferences_cookie(response)
-        if not skip_non_html_requests(response): 
-            response.headers.add("Vary", "Cookie")
         return response
