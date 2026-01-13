@@ -2,9 +2,29 @@
 from flask import request, current_app, redirect, session, g
 from datetime import datetime, timezone, timedelta
 from urllib.parse import urlencode, urlparse
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 
 from .exceptions import UserNotFoundException
+
+def get_serializer():
+    secret_key = current_app.config["SECRET_KEY"]
+    return URLSafeTimedSerializer(secret_key, salt="cookie-consent-signer")
+
+
+def extract_user_uuid_from_signed_cookie():
+    signed_cookie = request.cookies.get("_cookie_auth_token")
+    serializer = get_serializer()
+    try:
+        user_uuid = serializer.loads(signed_cookie, max_age=31536000)
+        return user_uuid
+    except (BadSignature, SignatureExpired):
+        return None
+
+
+def delete_cookie_auth_tokens(response):
+    response.delete_cookie("_cookie_auth_token")
+    response.delete_cookie("_cookie_authenticated")
 
 
 def get_client():
@@ -143,9 +163,9 @@ def sync_preferences_cookie(response):
     if skip_non_html_requests(response):
         return response
 
-    cookie_stale = check_cookie_stale()
-    user_uuid = session.get("user_uuid")
+    user_uuid = extract_user_uuid_from_signed_cookie()
     local_preferences = request.cookies.get("_cookies_accepted")
+    cookie_stale = check_cookie_stale()
 
     # Refresh preferences if cookie missing or stale
     if user_uuid and (not local_preferences or cookie_stale):
@@ -157,7 +177,7 @@ def sync_preferences_cookie(response):
                 )
                 set_cookies_accepted_with_ts(response, consent_value)
         except UserNotFoundException:
-            session.pop("user_uuid", None)
+            delete_cookie_auth_tokens(response)
         except Exception:
             pass
 

@@ -1,10 +1,15 @@
 # routes.py
 import flask
-from flask import request, session, jsonify, redirect, Blueprint
+from flask import request, jsonify, redirect, Blueprint, current_app
+from urllib.parse import urlencode
 from .helpers import (
     set_cookies_accepted_with_ts,
     get_client,
     is_safe_return_uri,
+    is_secure_context,
+    get_serializer,
+    delete_cookie_auth_tokens,
+    extract_user_uuid_from_signed_cookie
 )
 from .exceptions import UserNotFoundException
 
@@ -17,7 +22,7 @@ def callback():
     """
     - Handles the redirect from the central service.
     - Exchanges the code for a user_uuid.
-    - Stores the user_uuid in the secure HttpOnly session.
+    - Stores the user_uuid in the secure HttpOnly cookie.
     """
     code = request.args.get("code")
     return_uri = request.args.get("return_uri") or "/"
@@ -38,19 +43,41 @@ def callback():
     if not user_uuid:
         return jsonify({"error": "No user_uuid in response"}), 500
 
-    session.permanent = True
-    session["user_uuid"] = str(user_uuid)
+    serializer = get_serializer()
+    signed_cookie = serializer.dumps(user_uuid)
 
     response = flask.make_response(redirect(return_uri))
 
+    # Set the authentication cookie
+    response.set_cookie(
+        "_cookie_auth_token",
+        signed_cookie,
+        httponly=True,
+        samesite="Lax",
+        secure=is_secure_context(),
+        max_age=31536000,
+    )
+
+    # Set authentication flag (for client-side checks)
+    response.set_cookie(
+        "_cookie_authenticated",
+        "true",
+        httponly=False,
+        samesite="Lax",
+        secure=is_secure_context(),
+        max_age=31536000
+    )
+
     try:
         preferences = client.fetch_preferences(user_uuid)
+        if preferences and preferences.get("preferences"):
+            consent = preferences["preferences"].get("consent")
+            if consent:
+                set_cookies_accepted_with_ts(response, consent)
     except UserNotFoundException:
-        session.pop("user_uuid", None)
-    if preferences and preferences.get("preferences"):
-        consent = preferences["preferences"].get("consent")
-    if consent:
-        set_cookies_accepted_with_ts(response, consent)
+        # The user creation failed, clear associated cookies
+        delete_cookie_auth_tokens(response)
+        return response
 
     return response
 
@@ -60,7 +87,7 @@ def get_preferences():
     """
     Retrieves the user's ID from their session and fetches their preferences.
     """
-    user_uuid = session.get("user_uuid")
+    user_uuid = extract_user_uuid_from_signed_cookie()
     if not user_uuid:
         return jsonify({"error": "Not authenticated"}), 401
 
@@ -73,7 +100,7 @@ def set_preferences():
     """
     Retrieves the user's ID from their session and sets new preferences.
     """
-    user_uuid = session.get("user_uuid")
+    user_uuid = extract_user_uuid_from_signed_cookie()
     if not user_uuid:
         return jsonify({"error": "Not authenticated"}), 401
 
