@@ -25,13 +25,6 @@ from canonicalwebteam.cookie_service import CookieConsent
 
 app = Flask(__name__)
 
-# Required: Configure Flask session
-app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=365)
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-app.config["SESSION_COOKIE_HTTPONLY"] = True
-# Set to false for local development (or just use dynamic app.debug)
-app.config["SESSION_COOKIE_SECURE"] = True
-
 # Required: Set up cache functions (see Cache Integration section)
 def get_cache(key):
     return your_cache.get(key)
@@ -45,7 +38,6 @@ cookie_service = CookieConsent().init_app(
     get_cache_func=get_cache,
     set_cache_func=set_cache,
     start_health_check=True,  # Optional: default True
-    auto_register_hooks=True,  # Optional: default True
 )
 ```
 
@@ -57,13 +49,21 @@ cookie_service = CookieConsent().init_app(
 export COOKIE_SERVICE_API_KEY="your-api-key-here"
 ```
 
+### Optional Enviroment Variables
+
+```bash
+export COOKIE_SERVICE_START="true"
+```
+
+By default the service will start, it is recommended adding this to your `.env` by defualt to prevent this. 
+
 ### Optional Configuration
 
 These can be set in your Flask app config and have the following defaults:
 
 ```python
 # URL of the central cookie service (default: production)
-app.config["CENTRAL_COOKIE_SERVICE_URL"] = "https://cookies.canonical.com"
+app.config["CENTRAL_COOKIE_SERVICE_URL"] = "https://cookies.canonical.com" # Useful for testing with locally or with https://cookies.staging.canonical.com
 
 # Number of days before preference cookies expire (default: 365)
 app.config["PREFERENCES_COOKIE_EXPIRY_DAYS"] = 365
@@ -104,7 +104,7 @@ def set_cache(key, value, timeout):
 
 ## Initialization Parameters
 
-### `init_app(app, get_cache_func, set_cache_func, start_health_check=True, auto_register_hooks=True)`
+### `init_app(app, get_cache_func, set_cache_func, start_health_check=True)`
 
 #### Required Parameters:
 - **`app`**: Flask application instance
@@ -118,35 +118,34 @@ def set_cache(key, value, timeout):
   - Set to `False` to disable health checks (not recommended for production)
   - Common pattern: `start_health_check=not app.debug` (only run in production)
 
-- **`auto_register_hooks`** (bool, default: `True`)
-  - Automatically registers Flask `@before_request` and `@after_request` hooks
-  - When `True`, the package handles session checks and cookie synchronization automatically
-  - Set to `False` if you need manual control over the request/response cycle (advanced use case)
+
+## Linting
+
+This project uses tox for linting, the config is found in [tox.ini](/tox.ini)
+
+It exposes the following commands that run on files within /canonicalwebteam:
+
+- `tox -e lint`
+- `tox -e format`
 
 ## How It Works
 
-The system works by creating a session within the central service with an ID. This same session is created on each site the user visits, creating an association. This ID can then be used to fetch preferences.
+The system works by creating a session within the central service with an ID. This same ID is used to create an encrypted cookie on each site the user visits, creating an association. This ID can then be used to fetch preferences.
 
-### 1. Session Creation Flow
+### 1. Autherization Flow
 
 1. User visits your site
-2. The `@before_request` hook checks if the cookie service is health and a session exists
-3. If no session exists, user is redirected to the central cookie service
-4. The cookie service creates a session and redirects back to `/cookies/callback?code=...`
-5. The callback exchanges the code for a `user_uuid` and stores it in the session
+2. The client calls `/cookies/init` and checks for a user auth cookie
+3. If no cookie exists, user is redirected to the central cookie service
+4. The cookie service creates a session (as https://cookies.canonical.com) and redirects back to `/cookies/callback?code=<code>`
+5. The callback exchanges the code for a `user_uuid` and stores it in an encrypted cookie for future use
 6. User is redirected back to their original destination
-
-### 2. Preference Synchronization
-
-The `@after_request` hook:
-1. Checks if the `_cookies_accepted_ts` is over 1 day old
-1. If it is, fetches the user's consent preferences from the service
-2. Syncs preferences to local cookies (`_cookies_accepted`)
 
 ## Routes Provided
 
 The package automatically registers the following routes under `/cookies`:
 
+- **`/cookies/init`** - Is called on each pay load, directs the client on what action to take (redirect/fetch prefs/sync prefs/nothing)
 - **`/cookies/callback`** - Handles OAuth-style callback from the central service
 - **`/cookies/get-preferences`** - API endpoint to fetch current user's preferences
 - **`/cookies/set-preferences`** - API endpoint to update current user's preferences (called by cookie-policy package)
@@ -155,38 +154,16 @@ The package automatically registers the following routes under `/cookies`:
 
 | Cookie Name | Purpose | Lifetime | Attributes |
 |-------------|---------|----------|------------|
-| `session` | Flask session containing `user_uuid` | 365 days | HttpOnly, Secure, SameSite=Lax |
-| `_cookies_accepted` | User's consent preferences | 365 days | Secure, SameSite=Lax |
-| `_cookies_accepted_ts` | Timestamp of last preference update | 365 days | Secure, SameSite=Lax |
-| `_cookies_service_up` | Indicates if service is healthy | Session | Secure, SameSite=Lax |
-| `_cookies_redirect_completed` | Prevents redirect loops | Session | Secure, SameSite=Lax |
+| `_cookies_auth_token` | Encrypted cookie containing `user_uuid` | 365 days | HttpOnly, Secure, SameSite=Lax |
+| `_cookies_redirect_attempted` | Prevents redirect loops | Session | Secure, SameSite=Lax |
 
-## Advanced Usage
+**Cookies set my the JS module [cookie-policy](https://github.com/canonical/cookie-policy) also include**
 
-### Manual Hook Registration
-
-If you need more control over the request/response cycle, you can set `auto_register_hooks=False`.
-This allows you to define custom cycle hooks:
-
-```python
-from canonicalwebteam.cookie_service.helpers import (
-    check_session_and_redirect,
-    sync_preferences_cookie,
-)
-
-@app.before_request
-def my_before_request():
-    # Your custom logic here
-    response = check_session_and_redirect()
-    if response:
-        return response
-
-@app.after_request
-def my_after_request(response):
-    # Your custom logic here
-    response = sync_preferences_cookie(response)
-    return response
-```
+| Cookie Name | Purpose | Lifetime | Attributes |
+|-------------|---------|----------|------------|
+| `_cookies_accepted` | Encrypted cookie containing `user_uuid` | 365 days | HttpOnly, Secure, SameSite=Lax |
+| `_cookies_freshness_ts` | Prevents redirect loops | 365 days | Secure, SameSite=Lax |
+| `_cookies_set_offline` | Used to sync offline cookies | Session | Secure, SameSite=Lax |
 
 ## Support
 
