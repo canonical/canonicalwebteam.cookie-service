@@ -29,7 +29,7 @@ class CookieConsent:
             health check thread (default: True).
         """
 
-        if os.getenv("COOKIE_SERVICE_START").lower() == "false":
+        if os.getenv("COOKIE_SERVICE_DISABLED"):
             return
 
         self.get_cache = get_cache_func
