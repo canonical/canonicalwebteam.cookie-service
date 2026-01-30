@@ -102,24 +102,38 @@ def callback():
     if not is_safe_return_uri(return_uri):
         return_uri = "/"
 
+    response = flask.make_response(redirect(return_uri))
+
+    # Set a flag cookie to avoid redirect loops
+    response.set_cookie(
+        "_cookies_redirect_attempted",
+        "1",
+        max_age=300,
+        httponly=True,
+        samesite="Lax",
+    )
+
     if not code:
-        return jsonify({"error": "No code provided"}), 400
+        current_app.logger.warning("Cookie callback: No code provided")
+        return response
 
     client = get_client()
     data = client.exchange_code_for_uuid(code)
 
     if data is None:
-        return jsonify({"error": "Failed to exchange code"}), 500
+        current_app.logger.error("Cookie callback: Failed to exchange code")
+        return response
 
     user_uuid = data.get("user_uuid")
 
     if not user_uuid:
-        return jsonify({"error": "No user_uuid in response"}), 500
+        current_app.logger.error(
+            "Cookie callback: No user_uuid in response"
+        )
+        return response
 
     serializer = get_serializer()
     signed_cookie = serializer.dumps(user_uuid)
-
-    response = flask.make_response(redirect(return_uri))
 
     # Set the authentication cookie
     response.set_cookie(
@@ -129,15 +143,6 @@ def callback():
         samesite="Lax",
         secure=is_secure_context(),
         max_age=31536000,
-    )
-
-    # Set a flag cookie to avoid redirect loops
-    response.set_cookie(
-        "_cookies_redirect_attempted",
-        "1",
-        max_age=300,
-        httponly=True,
-        samesite="Lax",
     )
 
     return response
