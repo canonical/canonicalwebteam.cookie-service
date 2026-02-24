@@ -1,3 +1,11 @@
+### 2.0.0 [22-12-2026]
+**Requires [cookie-policy](https://github.com/canonical/cookie-policy) npm package 3.9.0**
+* Add '/cookies/init' to run on each page request and return user preferences or an action to the client.
+* The following have been removed and are now handled client side by the [cookie-policy npm package](https://github.com/canonical/cookie-policy)
+  - Redirecting
+  - Before and after request hooks
+  - Setting cookie preferences
+
 ### 1.0.5 [17-12-2025]
 - Don't cache the redirect responses
 

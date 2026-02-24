@@ -36,7 +36,9 @@ class CookieServiceClient:
         )
 
         if not self.api_key:
-            logger.warning("Warning: Cookie Service API Key is not configured.")
+            logger.warning(
+                "Warning: Cookie Service API Key is not configured."
+            )
 
     def _get_auth_headers(self):
         """Builds auth headers."""
@@ -120,7 +122,15 @@ class CookieServiceClient:
             return None
 
     def post_preferences(self, user_uuid, preferences):
-        """Sets preferences at the central service."""
+        """
+        Sets preferences at the central service.
+        JSON structure:
+        {
+            "preferences": {
+                "consent": "essential|functionality|performance|all|unset"
+            }
+        }
+        """
         try:
             url = f"{self.base_url}/api/v1/users/{user_uuid}/preferences"
             response = requests.post(
