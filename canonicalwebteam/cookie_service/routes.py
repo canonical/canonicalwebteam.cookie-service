@@ -16,6 +16,20 @@ from .helpers import (
 consent_bp = Blueprint("cookie_consent", __name__)
 
 
+@consent_bp.after_request
+def set_no_cache_headers(response):
+    """
+    Prevent the content-cache (or any upstream proxy) from caching
+    cookie-consent responses. These endpoints depend on per-user cookies
+    and must never be served from cache.
+    """
+    response.headers["Cache-Control"] = (
+        "no-store, no-cache, must-revalidate, private"
+    )
+    response.headers["Pragma"] = "no-cache"
+    return response
+
+
 def _make_set_preferences_response(consent: dict):
     """Build a standard 'set_preferences' response payload."""
     return (
