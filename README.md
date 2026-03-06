@@ -135,20 +135,20 @@ The system works by creating a session within the central service with an ID. Th
 ### 1. Autherization Flow
 
 1. User visits your site
-2. The client calls `/cookies/init` and checks for a user auth cookie
+2. The client calls `/_cookies/init` and checks for a user auth cookie
 3. If no cookie exists, user is redirected to the central cookie service
-4. The cookie service creates a session (as https://cookies.canonical.com) and redirects back to `/cookies/callback?code=<code>`
+4. The cookie service creates a session (as https://cookies.canonical.com) and redirects back to `/_cookies/callback?code=<code>`
 5. The callback exchanges the code for a `user_uuid` and stores it in an encrypted cookie for future use
 6. User is redirected back to their original destination
 
 ## Routes Provided
 
-The package automatically registers the following routes under `/cookies`:
+The package automatically registers the following routes under `/_cookies`:
 
-- **`/cookies/init`** - Is called on each pay load, directs the client on what action to take (redirect/fetch prefs/sync prefs/nothing)
-- **`/cookies/callback`** - Handles OAuth-style callback from the central service
-- **`/cookies/get-preferences`** - API endpoint to fetch current user's preferences
-- **`/cookies/set-preferences`** - API endpoint to update current user's preferences (called by cookie-policy package)
+- **`/_cookies/init`** - Is called on each pay load, directs the client on what action to take (redirect/fetch prefs/sync prefs/nothing)
+- **`/_cookies/callback`** - Handles OAuth-style callback from the central service
+- **`/_cookies/get-preferences`** - API endpoint to fetch current user's preferences
+- **`/_cookies/set-preferences`** - API endpoint to update current user's preferences (called by cookie-policy package)
 
 ## Cookies Set by This Package
 
