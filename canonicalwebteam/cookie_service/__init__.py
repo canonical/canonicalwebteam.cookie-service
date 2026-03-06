@@ -50,7 +50,7 @@ class CookieConsent:
         )
         app.extensions["cookie_consent_client"] = self.client
 
-        app.register_blueprint(consent_bp, url_prefix="/cookies")
+        app.register_blueprint(consent_bp, url_prefix="/_cookies")
 
         # Periodically ping the cookie service to check its health
         if start_health_check:

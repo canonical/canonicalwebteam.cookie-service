@@ -1,4 +1,8 @@
-### 2.0.0 [22-12-2026]
+### 2.1.0 [06-03-2026]
+**Requires [cookie-policy](https://github.com/canonical/cookie-policy) npm package 3.9.0**
+* Updates paths to `/_cookies`
+
+### 2.0.0 [22-12-2025]
 **Requires [cookie-policy](https://github.com/canonical/cookie-policy) npm package 3.9.0**
 * Add '/cookies/init' to run on each page request and return user preferences or an action to the client.
 * The following have been removed and are now handled client side by the [cookie-policy npm package](https://github.com/canonical/cookie-policy)
